@@ -194,6 +194,18 @@
                     </select>
                 </div>
                 <div class="filter-group">
+                    <label for="city-filter">City</label>
+                    <select id="city-filter">
+                        <option value="">All Cities</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="state-filter">State</label>
+                    <select id="state-filter">
+                        <option value="">All States</option>
+                    </select>
+                </div>
+                <div class="filter-group">
                     <label for="search-filter">Search</label>
                     <input type="text" id="search-filter" placeholder="Search by name or address...">
                 </div>
@@ -211,19 +223,15 @@
     </div>
 
     <script>
-        // Washington DC coordinates
-        const dcLat = 38.9072;
-        const dcLng = -77.0369;
+        // Default coordinates (will be overridden by actual data)
+        const defaultLat = 38.9072;
+        const defaultLng = -77.0369;
         
-        // Initialize the map with Washington DC center
+        // Initialize the map
         const map = L.map('map', {
-            center: [dcLat, dcLng],
-            zoom: 11,
-            minZoom: 10,
-            maxBounds: [
-                [dcLat - 0.5, dcLng - 0.5],
-                [dcLat + 0.5, dcLng + 0.5]
-            ]
+            center: [defaultLat, defaultLng],
+            zoom: 9,
+            minZoom: 3,
         });
         
         // Add OpenStreetMap tile layer
@@ -237,6 +245,8 @@
         
         // DOM elements
         const categoryFilter = document.getElementById('category-filter');
+        const cityFilter = document.getElementById('city-filter');
+        const stateFilter = document.getElementById('state-filter');
         const searchFilter = document.getElementById('search-filter');
         const locationList = document.getElementById('location-list');
         const resultsCount = document.getElementById('results-count');
@@ -269,6 +279,21 @@
                     complete: function(results) {
                         storeData = results.data;
                         
+                        // Add City and State from address if not present
+                        storeData.forEach(store => {
+                            if (!store.City || !store.State) {
+                                const addressParts = (store.Address || '').split(',');
+                                if (addressParts.length >= 2) {
+                                    // Extract city and state from address
+                                    store.City = store.City || addressParts[addressParts.length - 2].trim();
+                                    
+                                    // Extract state from last part (which may include ZIP code)
+                                    const stateZip = addressParts[addressParts.length - 1].trim().split(' ');
+                                    store.State = store.State || (stateZip.length > 0 ? stateZip[0] : '');
+                                }
+                            }
+                        });
+                        
                         // Hide loading message
                         loadingElement.style.display = 'none';
                         
@@ -281,16 +306,44 @@
                             categoryFilter.appendChild(option);
                         });
                         
+                        // Populate cities
+                        const cities = [...new Set(storeData.map(item => item.City))].filter(Boolean).sort();
+                        cities.forEach(city => {
+                            const option = document.createElement('option');
+                            option.value = city;
+                            option.textContent = city;
+                            cityFilter.appendChild(option);
+                        });
+                        
+                        // Populate states
+                        const states = [...new Set(storeData.map(item => item.State))].filter(Boolean).sort();
+                        states.forEach(state => {
+                            const option = document.createElement('option');
+                            option.value = state;
+                            option.textContent = state;
+                            stateFilter.appendChild(option);
+                        });
+                        
                         // Initial rendering
                         renderStores();
                         
+                        // Set initial map view to contain all markers
+                        if (markers.length > 0) {
+                            const bounds = L.latLngBounds(markers.map(marker => marker.getLatLng()));
+                            map.fitBounds(bounds, { padding: [50, 50] });
+                        }
+                        
                         // Event listeners for filters
                         categoryFilter.addEventListener('change', renderStores);
+                        cityFilter.addEventListener('change', renderStores);
+                        stateFilter.addEventListener('change', renderStores);
                         searchFilter.addEventListener('input', renderStores);
                         
                         // Reset buttons functionality
                         document.getElementById('reset-filters').addEventListener('click', () => {
                             categoryFilter.value = '';
+                            cityFilter.value = '';
+                            stateFilter.value = '';
                             searchFilter.value = '';
                             renderStores();
                         });
@@ -300,7 +353,7 @@
                                 const bounds = L.latLngBounds(markers.map(marker => marker.getLatLng()));
                                 map.fitBounds(bounds, { padding: [50, 50] });
                             } else {
-                                map.setView([dcLat, dcLng], 11); // Reset to Washington DC
+                                map.setView([defaultLat, defaultLng], 9); // Reset to default view
                             }
                         });
                     },
@@ -318,6 +371,8 @@
         // Render stores based on filters
         function renderStores() {
             const categoryValue = categoryFilter.value;
+            const cityValue = cityFilter.value;
+            const stateValue = stateFilter.value;
             const searchValue = searchFilter.value.toLowerCase();
             
             // Clear existing markers
@@ -330,11 +385,13 @@
             // Filter stores
             const filteredStores = storeData.filter(store => {
                 const matchesCategory = !categoryValue || store.Category === categoryValue;
+                const matchesCity = !cityValue || (store.City && store.City === cityValue);
+                const matchesState = !stateValue || (store.State && store.State === stateValue);
                 const matchesSearch = !searchValue || 
                     (store.Name && store.Name.toLowerCase().includes(searchValue)) || 
                     (store.Address && store.Address.toLowerCase().includes(searchValue));
                 
-                return matchesCategory && matchesSearch;
+                return matchesCategory && matchesCity && matchesState && matchesSearch;
             });
             
             // Update results count
@@ -349,10 +406,14 @@
                     const marker = L.marker([store.Latitude, store.Longitude])
                         .addTo(map);
                     
+                    // Format location info
+                    const cityState = [store.City, store.State].filter(Boolean).join(', ');
+                    const locationInfo = cityState ? `<p>${store.Address}<br>${cityState}</p>` : `<p>${store.Address}</p>`;
+                    
                     // Marker popup
                     marker.bindPopup(`
                         <h3>${store.Name}</h3>
-                        <p>${store.Address}</p>
+                        ${locationInfo}
                         <div class="category">${store.Category}</div>
                     `);
                     
@@ -364,7 +425,7 @@
                     listItem.className = 'location-item';
                     listItem.innerHTML = `
                         <h3>${store.Name}</h3>
-                        <p>${store.Address}</p>
+                        ${locationInfo}
                         <div class="category">${store.Category}</div>
                     `;
                     

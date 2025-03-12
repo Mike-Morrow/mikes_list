@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mike's Store Locator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background-color: #222;
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        .sidebar {
+            width: 300px;
+            background-color: #f5f5f5;
+            padding: 1rem;
+            overflow-y: auto;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+        }
+        .filters {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid #ddd;
+        }
+        .filters h3 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+        }
+        .filter-group {
+            margin-bottom: 1rem;
+        }
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+        select, input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+        .location-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .location-item {
+            padding: 1rem;
+            border-bottom: 1px solid #ddd;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .location-item:hover {
+            background-color: #eee;
+        }
+        .location-item h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+        }
+        .location-item p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .location-item .category {
+            display: inline-block;
+            background-color: #222;
+            color: white;
+            font-size: 0.8rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+        #map {
+            flex: 1;
+            height: 100%;
+        }
+        .leaflet-popup-content {
+            margin: 0.5rem 0.5rem;
+        }
+        .leaflet-popup-content h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+        }
+        .leaflet-popup-content p {
+            margin: 0.2rem 0;
+            font-size: 0.9rem;
+        }
+        .leaflet-popup-content .category {
+            display: inline-block;
+            background-color: #222;
+            color: white;
+            font-size: 0.8rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            margin-top: 0.5rem;
+        }
+        .results-count {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        .mobile-toggle {
+            display: none;
+            background-color: #222;
+            color: white;
+            border: none;
+            padding: 0.5rem;
+            width: 100%;
+            text-align: center;
+            cursor: pointer;
+        }
+        .button {
+            background-color: #222;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 0.5rem 1rem;
+            margin-right: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .button:hover {
+            background-color: #444;
+        }
+        #reset-filters, #reset-zoom {
+            margin-top: 0.5rem;
+            width: calc(50% - 0.5rem);
+        }
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            font-size: 1.2rem;
+            color: #666;
+        }
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            .sidebar {
+                width: 100%;
+                max-height: 40%;
+                display: none;
+            }
+            .sidebar.active {
+                display: block;
+            }
+            .mobile-toggle {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Mike's Store Locator</h1>
+    </header>
+    
+    <button class="mobile-toggle" id="toggle-sidebar">Show List & Filters</button>
+    
+    <div class="main-container">
+        <div class="sidebar" id="sidebar">
+            <div class="filters">
+                <h3>Filters</h3>
+                <div class="filter-group">
+                    <label for="category-filter">Category</label>
+                    <select id="category-filter">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="search-filter">Search</label>
+                    <input type="text" id="search-filter" placeholder="Search by name or address...">
+                </div>
+                <div class="filter-group">
+                    <button id="reset-filters" class="button">Reset Filters</button>
+                    <button id="reset-zoom" class="button">Reset Zoom</button>
+                </div>
+            </div>
+            <div class="results-count" id="results-count"></div>
+            <ul class="location-list" id="location-list"></ul>
+        </div>
+        <div id="map">
+            <div class="loading" id="loading">Loading map data...</div>
+        </div>
+    </div>
+
+    <script>
+        // Washington DC coordinates
+        const dcLat = 38.9072;
+        const dcLng = -77.0369;
+        
+        // Initialize the map with Washington DC center
+        const map = L.map('map', {
+            center: [dcLat, dcLng],
+            zoom: 11,
+            minZoom: 10,
+            maxBounds: [
+                [dcLat - 0.5, dcLng - 0.5],
+                [dcLat + 0.5, dcLng + 0.5]
+            ]
+        });
+        
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Store data and markers
+        let storeData = [];
+        let markers = [];
+        
+        // DOM elements
+        const categoryFilter = document.getElementById('category-filter');
+        const searchFilter = document.getElementById('search-filter');
+        const locationList = document.getElementById('location-list');
+        const resultsCount = document.getElementById('results-count');
+        const toggleSidebar = document.getElementById('toggle-sidebar');
+        const sidebar = document.getElementById('sidebar');
+        const loadingElement = document.getElementById('loading');
+        
+        // Mobile sidebar toggle
+        toggleSidebar.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+            toggleSidebar.textContent = sidebar.classList.contains('active') ? 'Hide List & Filters' : 'Show List & Filters';
+        });
+        
+        // Fetch data from GitHub Gist
+        const gistUrl = 'https://gist.githubusercontent.com/Mike-Morrow/84c2a8e5e1f1178c5deb6137585c9d99/raw/63613e370560eba78afc1376ffc1fa17756a44c9/mikes_list.csv';
+        
+        fetch(gistUrl)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.text();
+            })
+            .then(csvText => {
+                // Parse CSV data
+                Papa.parse(csvText, {
+                    header: true,
+                    dynamicTyping: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        storeData = results.data;
+                        
+                        // Hide loading message
+                        loadingElement.style.display = 'none';
+                        
+                        // Populate categories
+                        const categories = [...new Set(storeData.map(item => item.Category))].filter(Boolean).sort();
+                        categories.forEach(category => {
+                            const option = document.createElement('option');
+                            option.value = category;
+                            option.textContent = category;
+                            categoryFilter.appendChild(option);
+                        });
+                        
+                        // Initial rendering
+                        renderStores();
+                        
+                        // Event listeners for filters
+                        categoryFilter.addEventListener('change', renderStores);
+                        searchFilter.addEventListener('input', renderStores);
+                        
+                        // Reset buttons functionality
+                        document.getElementById('reset-filters').addEventListener('click', () => {
+                            categoryFilter.value = '';
+                            searchFilter.value = '';
+                            renderStores();
+                        });
+                        
+                        document.getElementById('reset-zoom').addEventListener('click', () => {
+                            if (markers.length > 0) {
+                                const bounds = L.latLngBounds(markers.map(marker => marker.getLatLng()));
+                                map.fitBounds(bounds, { padding: [50, 50] });
+                            } else {
+                                map.setView([dcLat, dcLng], 11); // Reset to Washington DC
+                            }
+                        });
+                    },
+                    error: function(error) {
+                        console.error('Error parsing CSV:', error);
+                        loadingElement.innerHTML = 'Error loading data. Please try again later.';
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Fetch error:', error);
+                loadingElement.innerHTML = 'Error loading data. Please try again later.';
+            });
+        
+        // Render stores based on filters
+        function renderStores() {
+            const categoryValue = categoryFilter.value;
+            const searchValue = searchFilter.value.toLowerCase();
+            
+            // Clear existing markers
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            
+            // Clear location list
+            locationList.innerHTML = '';
+            
+            // Filter stores
+            const filteredStores = storeData.filter(store => {
+                const matchesCategory = !categoryValue || store.Category === categoryValue;
+                const matchesSearch = !searchValue || 
+                    (store.Name && store.Name.toLowerCase().includes(searchValue)) || 
+                    (store.Address && store.Address.toLowerCase().includes(searchValue));
+                
+                return matchesCategory && matchesSearch;
+            });
+            
+            // Update results count
+            resultsCount.textContent = `Showing ${filteredStores.length} of ${storeData.length} locations`;
+            
+            // Add markers and list items
+            const bounds = L.latLngBounds();
+            
+            filteredStores.forEach(store => {
+                if (store.Latitude && store.Longitude) {
+                    // Create marker
+                    const marker = L.marker([store.Latitude, store.Longitude])
+                        .addTo(map);
+                    
+                    // Marker popup
+                    marker.bindPopup(`
+                        <h3>${store.Name}</h3>
+                        <p>${store.Address}</p>
+                        <div class="category">${store.Category}</div>
+                    `);
+                    
+                    markers.push(marker);
+                    bounds.extend([store.Latitude, store.Longitude]);
+                    
+                    // List item
+                    const listItem = document.createElement('li');
+                    listItem.className = 'location-item';
+                    listItem.innerHTML = `
+                        <h3>${store.Name}</h3>
+                        <p>${store.Address}</p>
+                        <div class="category">${store.Category}</div>
+                    `;
+                    
+                    // Click event to zoom to marker
+                    listItem.addEventListener('click', () => {
+                        map.setView([store.Latitude, store.Longitude], 16);
+                        marker.openPopup();
+                        
+                        // Close sidebar on mobile
+                        if (window.innerWidth <= 768) {
+                            sidebar.classList.remove('active');
+                            toggleSidebar.textContent = 'Show List & Filters';
+                        }
+                    });
+                    
+                    locationList.appendChild(listItem);
+                }
+            });
+            
+            // Fit bounds if we have markers
+            if (markers.length > 0) {
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+        }
+    </script>
+</body>
+</html>

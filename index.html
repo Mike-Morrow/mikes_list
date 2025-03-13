@@ -146,7 +146,7 @@
             color: white;
             border: none;
             border-radius: 8px;
-            width: 70px;
+            width: 80px;
             height: 44px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
             display: flex;
@@ -314,10 +314,7 @@
         
         <div class="mobile-controls">
             <button class="mobile-button" id="toggle-filters">
-                MENU
-            </button>
-            <button class="mobile-button" id="center-map">
-                MAP
+                Filters
             </button>
         </div>
     </div>
@@ -354,7 +351,6 @@
         const loadingElement = document.getElementById('loading');
         const overlay = document.getElementById('overlay');
         const toggleFilters = document.getElementById('toggle-filters');
-        const centerMap = document.getElementById('center-map');
         const filterToggle = document.getElementById('filter-toggle');
         const filtersContent = document.getElementById('filters-content');
         
@@ -362,6 +358,17 @@
         toggleFilters.addEventListener('click', () => {
             sidebar.classList.toggle('active');
             overlay.classList.toggle('active');
+            
+            // Scroll sidebar to top when opened
+            if (sidebar.classList.contains('active')) {
+                sidebar.scrollTop = 0;
+                
+                // Make sure filters are expanded
+                if (filtersContent.classList.contains('collapsed')) {
+                    filtersContent.classList.remove('collapsed');
+                    filterToggle.textContent = '−';
+                }
+            }
         });
         
         // Overlay click to close sidebar
@@ -370,15 +377,7 @@
             overlay.classList.remove('active');
         });
         
-        // Center map button
-        centerMap.addEventListener('click', () => {
-            if (markers.length > 0) {
-                const bounds = L.latLngBounds(markers.map(marker => marker.getLatLng()));
-                map.fitBounds(bounds, { padding: [50, 50] });
-            } else {
-                map.setView([defaultLat, defaultLng], 9);
-            }
-        });
+        // Center map button functionality - REMOVED
         
         // Map click to close sidebar on mobile
         map.on('click', () => {

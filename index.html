@@ -16,22 +16,25 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
+            overflow: hidden;
         }
         header {
             background-color: #222;
             color: white;
-            padding: 1rem;
+            padding: 0.75rem;
             text-align: center;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 1000;
         }
         h1 {
             margin: 0;
-            font-size: 1.8rem;
+            font-size: 1.6rem;
         }
         .main-container {
             display: flex;
             flex: 1;
             overflow: hidden;
+            position: relative;
         }
         .sidebar {
             width: 300px;
@@ -39,6 +42,8 @@
             padding: 1rem;
             overflow-y: auto;
             box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+            z-index: 998;
+            transition: transform 0.3s ease;
         }
         .filters {
             margin-bottom: 1rem;
@@ -48,6 +53,9 @@
         .filters h3 {
             margin-top: 0;
             margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .filter-group {
             margin-bottom: 1rem;
@@ -99,6 +107,7 @@
         #map {
             flex: 1;
             height: 100%;
+            z-index: 1;
         }
         .leaflet-popup-content {
             margin: 0.5rem 0.5rem;
@@ -125,15 +134,27 @@
             color: #666;
             margin-bottom: 1rem;
         }
-        .mobile-toggle {
+        .mobile-controls {
             display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 999;
+        }
+        .mobile-button {
             background-color: #222;
             color: white;
             border: none;
-            padding: 0.5rem;
-            width: 100%;
-            text-align: center;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
             cursor: pointer;
+            margin-top: 10px;
         }
         .button {
             background-color: #222;
@@ -158,19 +179,51 @@
             font-size: 1.2rem;
             color: #666;
         }
+        .filter-toggle {
+            background: none;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .filters-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            max-height: 500px;
+        }
+        .filters-content.collapsed {
+            max-height: 0;
+        }
+        
+        /* Mobile styles */
         @media (max-width: 768px) {
-            .main-container {
-                flex-direction: column;
-            }
             .sidebar {
-                width: 100%;
-                max-height: 40%;
-                display: none;
+                position: absolute;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 85%;
+                max-width: 320px;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
             }
             .sidebar.active {
+                transform: translateX(0);
+            }
+            .mobile-controls {
                 display: block;
             }
-            .mobile-toggle {
+            .overlay {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0,0,0,0.5);
+                z-index: 997;
+            }
+            .overlay.active {
                 display: block;
             }
         }
@@ -181,44 +234,72 @@
         <h1>Mike's Store Locator</h1>
     </header>
     
-    <button class="mobile-toggle" id="toggle-sidebar">Show List & Filters</button>
-    
     <div class="main-container">
         <div class="sidebar" id="sidebar">
             <div class="filters">
-                <h3>Filters</h3>
-                <div class="filter-group">
-                    <label for="category-filter">Category</label>
-                    <select id="category-filter">
-                        <option value="">All Categories</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="city-filter">City</label>
-                    <select id="city-filter">
-                        <option value="">All Cities</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="state-filter">State</label>
-                    <select id="state-filter">
-                        <option value="">All States</option>
-                    </select>
-                </div>
-                <div class="filter-group">
-                    <label for="search-filter">Search</label>
-                    <input type="text" id="search-filter" placeholder="Search by name or address...">
-                </div>
-                <div class="filter-group">
-                    <button id="reset-filters" class="button">Reset Filters</button>
-                    <button id="reset-zoom" class="button">Reset Zoom</button>
+                <h3>
+                    Filters
+                    <button class="filter-toggle" id="filter-toggle">−</button>
+                </h3>
+                <div class="filters-content" id="filters-content">
+                    <div class="filter-group">
+                        <label for="category-filter">Category</label>
+                        <select id="category-filter">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="city-filter">City</label>
+                        <select id="city-filter">
+                            <option value="">All Cities</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="state-filter">State</label>
+                        <select id="state-filter">
+                            <option value="">All States</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="search-filter">Search</label>
+                        <input type="text" id="search-filter" placeholder="Search by name or address...">
+                    </div>
+                    <div class="filter-group">
+                        <button id="reset-filters" class="button">Reset Filters</button>
+                        <button id="reset-zoom" class="button">Reset Zoom</button>
+                    </div>
                 </div>
             </div>
             <div class="results-count" id="results-count"></div>
             <ul class="location-list" id="location-list"></ul>
         </div>
+        
         <div id="map">
             <div class="loading" id="loading">Loading map data...</div>
+        </div>
+        
+        <div class="overlay" id="overlay"></div>
+        
+        <div class="mobile-controls">
+            <button class="mobile-button" id="toggle-filters">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="4" y1="21" x2="4" y2="14"></line>
+                    <line x1="4" y1="10" x2="4" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12" y2="3"></line>
+                    <line x1="20" y1="21" x2="20" y2="16"></line>
+                    <line x1="20" y1="12" x2="20" y2="3"></line>
+                    <line x1="1" y1="14" x2="7" y2="14"></line>
+                    <line x1="9" y1="8" x2="15" y2="8"></line>
+                    <line x1="17" y1="16" x2="23" y2="16"></line>
+                </svg>
+            </button>
+            <button class="mobile-button" id="center-map">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                </svg>
+            </button>
         </div>
     </div>
 
@@ -250,14 +331,48 @@
         const searchFilter = document.getElementById('search-filter');
         const locationList = document.getElementById('location-list');
         const resultsCount = document.getElementById('results-count');
-        const toggleSidebar = document.getElementById('toggle-sidebar');
         const sidebar = document.getElementById('sidebar');
         const loadingElement = document.getElementById('loading');
+        const overlay = document.getElementById('overlay');
+        const toggleFilters = document.getElementById('toggle-filters');
+        const centerMap = document.getElementById('center-map');
+        const filterToggle = document.getElementById('filter-toggle');
+        const filtersContent = document.getElementById('filters-content');
         
         // Mobile sidebar toggle
-        toggleSidebar.addEventListener('click', () => {
+        toggleFilters.addEventListener('click', () => {
             sidebar.classList.toggle('active');
-            toggleSidebar.textContent = sidebar.classList.contains('active') ? 'Hide List & Filters' : 'Show List & Filters';
+            overlay.classList.toggle('active');
+        });
+        
+        // Overlay click to close sidebar
+        overlay.addEventListener('click', () => {
+            sidebar.classList.remove('active');
+            overlay.classList.remove('active');
+        });
+        
+        // Center map button
+        centerMap.addEventListener('click', () => {
+            if (markers.length > 0) {
+                const bounds = L.latLngBounds(markers.map(marker => marker.getLatLng()));
+                map.fitBounds(bounds, { padding: [50, 50] });
+            } else {
+                map.setView([defaultLat, defaultLng], 9);
+            }
+        });
+        
+        // Map click to close sidebar on mobile
+        map.on('click', () => {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            }
+        });
+        
+        // Toggle filters section
+        filterToggle.addEventListener('click', () => {
+            filtersContent.classList.toggle('collapsed');
+            filterToggle.textContent = filtersContent.classList.contains('collapsed') ? '+' : '−';
         });
         
         // Fetch data from GitHub Gist
@@ -437,7 +552,7 @@
                         // Close sidebar on mobile
                         if (window.innerWidth <= 768) {
                             sidebar.classList.remove('active');
-                            toggleSidebar.textContent = 'Show List & Filters';
+                            overlay.classList.remove('active');
                         }
                     });
                     
@@ -446,10 +561,17 @@
             });
             
             // Fit bounds if we have markers
-            if (markers.length > 0) {
+            if (filteredStores.length !== storeData.length && markers.length > 0) {
                 map.fitBounds(bounds, { padding: [50, 50] });
             }
         }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            if (window.innerWidth > 768) {
+                overlay.classList.remove('active');
+            }
+        });
     </script>
 </body>
 </html>
